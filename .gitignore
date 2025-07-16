@@ -1,0 +1,19 @@
+# Python cache
+__pycache__/
+*.py[cod]
+*.egg-info/
+
+# Virtual env
+.env/
+venv/
+.qwen-lora/
+*.log
+
+# Model files
+models/Qwen2-0.5B-Instruct/
+*.safetensors
+*.pth
+*.bin
+
+# Data
+data/
