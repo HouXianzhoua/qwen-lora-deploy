@@ -25,9 +25,9 @@ model.resize_token_embeddings(len(tokenizer))  # 确保 token 数量一致
 # 2. 配置 LoRA 微调
 # -----------------------------
 lora_config = LoraConfig(
-    r=8,
-    lora_alpha=32,
-    lora_dropout=0.1,
+    r=32,
+    lora_alpha=64,
+    lora_dropout=0.05,
     target_modules=["q_proj", "k_proj", "v_proj", "o_proj"],
     bias="none",
     task_type="CAUSAL_LM"
@@ -51,10 +51,11 @@ print("First raw sample:")
 print(dataset[0])
 
 def tokenize_function(examples):
-    texts = [f"{inst}\n{resp}" for inst, resp in zip(examples["instruction"], examples["response"])]
+    # 构建统一的 prompt 格式
+    prompts = [f"问题：{inst}\n\n回答：{resp}" for inst, resp in zip(examples["instruction"], examples["response"])]
 
     tokenized = tokenizer(
-        texts,
+        prompts,
         padding="longest",
         truncation=True,
         max_length=512,
@@ -96,7 +97,7 @@ data_collator = default_data_collator
 # -----------------------------
 training_args = TrainingArguments(
     output_dir="./output",
-    num_train_epochs=3,
+    num_train_epochs=6,
     per_device_train_batch_size=1,
     gradient_accumulation_steps=4,
     learning_rate=3e-4,
