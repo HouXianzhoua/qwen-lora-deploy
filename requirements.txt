@@ -1,0 +1,11 @@
+transformers==4.40.0
+peft==0.10.0
+datasets
+accelerate
+scipy
+fastapi
+uvicorn[standard]  # ✅ 推荐：包含 uvloop、httptools 等性能组件
+gunicorn           # ✅ 必须添加！
+pydantic
+python-dotenv
+sentencepiece

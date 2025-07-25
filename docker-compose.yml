@@ -1,0 +1,27 @@
+# docker-compose.yml
+
+services:
+  qwen-lora-api:
+    env_file:
+      - .env
+    image: qwen-lora-api
+    build:
+      context: .
+      dockerfile: deploy/Dockerfile
+    container_name: qwen-lora
+    ports:
+      - "${API_PORT:-8000}:8000"
+    volumes:
+      - ./models:/mnt/models
+      - ./finetune/output/final_model:/app/finetune/output/final_model
+    runtime: nvidia
+    environment:
+      - NVIDIA_VISIBLE_DEVICES=all
+      - MODEL_PATH=${MODEL_PATH}
+      - LORA_PATH=${LORA_PATH}
+      - DEFAULT_MAX_NEW_TOKENS=${DEFAULT_MAX_NEW_TOKENS}
+      - DEFAULT_TEMPERATURE=${DEFAULT_TEMPERATURE}
+      - DEFAULT_TOP_P=${DEFAULT_TOP_P}
+      - WORKERS=${WORKERS}
+      - MAX_WORKERS_THREAD_POOL=${MAX_WORKERS_THREAD_POOL}
+      - DEBUG=${DEBUG}

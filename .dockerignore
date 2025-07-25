@@ -1,0 +1,31 @@
+# .dockerignore
+
+# 模型文件（通过 volume 挂载）
+/models
+/finetune/output/checkpoint-*
+/finetune/output/*/optimizer.pt
+/finetune/output/*/rng_state*
+/finetune/output/*/scheduler.pt
+
+# 日志和缓存
+__pycache__
+*.pyc
+*.log
+logs/
+
+# Git 和 IDE
+.git
+.vscode
+.idea
+
+# 测试脚本
+test_*.py
+gpu_test.sh
+run_docker.sh
+test.sh
+
+# 其他非必要
+README.md
+data/
+scripts/
+inference/
