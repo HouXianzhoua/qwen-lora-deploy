@@ -66,16 +66,18 @@ def init_model(model_path: str = None, lora_path: str = None):
 def safe_generate_response(prompt: str, **kwargs):
     model = registry.get_model()
     tokenizer = registry.get_tokenizer()
-    
+
     max_new_tokens = kwargs.get('max_new_tokens', DEFAULT_MAX_NEW_TOKENS)
     temperature = kwargs.get('temperature', DEFAULT_TEMPERATURE)
     top_p = kwargs.get('top_p', DEFAULT_TOP_P)
     do_sample = kwargs.get('do_sample', DEFAULT_DO_SAMPLE)
-    
-    # ✅ 记录推理参数
+
     logger.debug(f"开始生成: prompt='{prompt[:50]}...', max_new_tokens={max_new_tokens}, temperature={temperature}, top_p={top_p}")
-    
-    inputs = tokenizer(prompt, return_tensors="pt").to(model.device)
+
+    # ✅ 正确方式：先获取 inputs，再移动到设备
+    inputs = tokenizer(prompt, return_tensors="pt")
+    inputs = {k: v.to(model.device) for k, v in inputs.items()}  # ✅ 逐个移动 tensor
+
     with torch.no_grad():
         outputs = model.generate(
             **inputs,
@@ -85,7 +87,6 @@ def safe_generate_response(prompt: str, **kwargs):
             do_sample=do_sample
         )
     result = tokenizer.decode(outputs[0], skip_special_tokens=True)
-    # ✅ 记录生成完成
     logger.debug(f"生成完成，输出长度: {len(result)}")
     return result
 
