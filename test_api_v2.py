@@ -13,7 +13,7 @@ def test_predict(prompt: str):
 
     data = {
         "prompt": prompt,
-        "max_new_tokens": 128,
+        "max_new_tokens": 64,
         "temperature": 0.7,
         "top_p": 0.9,
         "do_sample": True

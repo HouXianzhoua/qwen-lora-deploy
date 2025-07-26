@@ -27,5 +27,4 @@ test.sh
 # 其他非必要
 README.md
 data/
-scripts/
 inference/
