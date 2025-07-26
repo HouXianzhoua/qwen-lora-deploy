@@ -44,5 +44,9 @@ ENV PYTHONPATH=/app \
 # 暴露端口
 EXPOSE 8000
 
-# 启动命令
-CMD ["gunicorn", "-k", "uvicorn.workers.UvicornWorker", "--bind", "0.0.0.0:8000", "--workers=1", "api.main:app"]
+# 创建启动脚本
+RUN chmod +x /app/scripts/start.sh
+
+# 使用脚本启动
+CMD ["/app/scripts/start.sh"]
+
