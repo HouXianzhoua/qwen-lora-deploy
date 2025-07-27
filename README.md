@@ -213,24 +213,40 @@ curl -X POST http://localhost:8000/predict \
 | `DEBUG` | `false` | 是否开启调试模式 |
 
 > 📌 **创建 `.env` 文件**：复制 `env.example` 并根据需要修改
-
 ```bash
 cp .env.example .env
 # 编辑 .env 文件
 vim .env
+```
 
 ---
 
-## 📈 性能表现
+## 📊 性能指标
 
-| 场景 | 指标 |
+| 指标 | 数值 |
 |------|------|
 | **本地推理延迟** | ~1.5 秒（prompt + 生成） |
 | **训练耗时** | ~72 秒（138 条数据，r=16） |
 | **10 QPS 负载测试** | 平均响应 16 秒，P95 33 秒 |
 | **显存占用** | ~1.8 GB（合并后模型） |
 
-> 测试环境：NVIDIA 4070S GPU，32GB RAM，Ubuntu 22.04
+> **测试环境**：NVIDIA 4070S GPU，32GB RAM，Ubuntu 22.04
+
+---
+
+## 🧪 测试与验证
+
+```bash
+# 单元测试
+pytest tests/
+
+# 集成测试
+python test_api_v1.py
+python test_api_v2.py
+
+# 压力测试（Locust）
+locust -f locustfile.py --headless -u 10 -r 2 -t 5m
+```
 
 ---
 
