@@ -93,7 +93,6 @@ git clone https://hf-mirror.com/Qwen/Qwen2-0.5B-Instruct models/Qwen2-0.5B-Instr
 
 ### 3. 数据准备与LoRA 微调
 
----
 
 ## 📚 数据格式说明
 
@@ -112,7 +111,6 @@ git clone https://hf-mirror.com/Qwen/Qwen2-0.5B-Instruct models/Qwen2-0.5B-Instr
 - `data/` 目录已被 `.gitignore` 忽略，请自行创建并放入你的私有数据。
 - 你可以通过修改 `lora_train.py` 中的 `dataset` 加载路径来使用自定义数据集。
 
----
 
 ## 📚 微调
 ```bash
