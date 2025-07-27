@@ -1,5 +1,3 @@
-
-```markdown
 # 🚀 Qwen-LoRA 微调与推理服务封装项目
 
 > 基于 Qwen2-0.5B-Instruct 的轻量级指令微调（LoRA）与 FastAPI 推理服务封装，支持一键训练、推理与 Docker 部署，适用于小样本定制化 AI 场景。
@@ -34,30 +32,6 @@
 | **Gunicorn + Uvicorn** | 多 Worker 生产级部署 |
 | **Docker + NVIDIA GPU** | 容器化部署，支持 CUDA 加速 |
 | **ThreadPoolExecutor** | 线程池控制推理并发 |
-
----
-
-## 📦 项目结构
-
-```bash
-qwen-lora-deploy/
-├── finetune/               # LoRA 微调脚本
-│   ├── lora_train.py       # 训练入口
-│   └── output/final_model/ # 微调后模型权重
-├── api/                    # 推理服务核心
-│   ├── main.py             # FastAPI 服务入口
-│   ├── infer.py            # 推理逻辑
-│   └── model_registry.py   # 模型单例注册
-├── models/                 # 基础模型（需手动下载）
-│   └── Qwen2-0.5B-Instruct/
-├── deploy/Dockerfile       # Docker 镜像构建
-├── docker-compose.yml      # 容器编排
-├── scripts/start.sh        # 启动脚本
-├── config.py               # 全局配置
-├── requirements.txt        # 依赖列表
-└── README.md               # 本文件
-```
-
 ---
 
 ## 🔧 快速开始
@@ -117,15 +91,7 @@ git clone https://hf-mirror.com/Qwen/Qwen2-0.5B-Instruct models/Qwen2-0.5B-Instr
 
 ---
 
-### 3. LoRA 微调
-
-```bash
-# 进入微调目录
-cd finetune
-
-# 执行训练（默认使用 data/train.jsonl）
-python lora_train.py
-```
+### 3. 数据准备与LoRA 微调
 
 ---
 
@@ -145,6 +111,18 @@ python lora_train.py
 📁 **注意**：
 - `data/` 目录已被 `.gitignore` 忽略，请自行创建并放入你的私有数据。
 - 你可以通过修改 `lora_train.py` 中的 `dataset` 加载路径来使用自定义数据集。
+
+---
+
+## 📚 微调
+```bash
+# 进入微调目录
+cd finetune
+
+# 执行训练（默认使用 data/train.jsonl）
+python lora_train.py
+```
+
 
 ---
 
