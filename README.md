@@ -1,3 +1,4 @@
+
 ```markdown
 # 🚀 Qwen-LoRA 微调与推理服务封装项目
 
@@ -67,28 +68,56 @@ qwen-lora-deploy/
 # 推荐使用 conda 或 venv
 conda create -n qwen python=3.10
 conda activate qwen
-
 # 安装依赖
 pip install -r requirements.txt
+```
 
-# 下载基础模型（需登录 Hugging Face）
-本项目基于 `Qwen2-0.5B-Instruct` 模型进行微调。请先从 [Hugging Face](https://huggingface.co/Qwen/Qwen2-0.5B-Instruct) 下载模型，并放置在 `models/Qwen2-0.5B-Instruct/` 目录下。
+### 2. 📥 下载基础模型（关键步骤！）
+
+本项目依赖 `Qwen2-0.5B-Instruct` 作为基础模型。**该模型文件较大且需遵守许可协议，不会包含在本仓库中**。请按以下步骤自行下载：
+
+#### 方法一：使用 Hugging Face (国际站)
+
 ```bash
+# 安装 Git LFS
 git lfs install
+
+# 创建模型目录
+mkdir -p models
+
+# 克隆模型（需登录 Hugging Face 并同意协议）
 git clone https://huggingface.co/Qwen/Qwen2-0.5B-Instruct models/Qwen2-0.5B-Instruct
 ```
 
-> ⚠️ 注意：请确保你已登录 Hugging Face 并同意 Qwen 的使用协议。
-# 创建数据目录并添加示例数据：
+> 🔗 访问 [https://huggingface.co/Qwen/Qwen2-0.5B-Instruct](https://huggingface.co/Qwen/Qwen2-0.5B-Instruct) 并点击 "Agree and access repository"。
+
+#### 方法二：使用 ModelScope (魔搭，国内推荐)
 
 ```bash
-mkdir -p data
-cat > data/train.jsonl << EOF
-{"instruction": "Translate to Chinese", "response: "你好！"}
-EOF
+# 安装 modelscope
+pip install modelscope
+
+# 使用 Python 脚本下载
+from modelscope.hub.snapshot_download import snapshot_download
+snapshot_download('qwen/Qwen2-0.5B-Instruct', cache_dir='models')
+```
+
+> 🔗 访问 [https://modelscope.cn/models/qwen/Qwen2-0.5B-Instruct](https://modelscope.cn/models/qwen/Qwen2-0.5B-Instruct)
+
+#### 方法三：使用 Hugging Face 镜像站
+
+```bash
+# 使用国内镜像加速
+git clone https://hf-mirror.com/Qwen/Qwen2-0.5B-Instruct models/Qwen2-0.5B-Instruct
+```
+
+> 🔗 [https://hf-mirror.com](https://hf-mirror.com)
+
+✅ **验证目录结构**：下载后，确保路径为 `models/Qwen2-0.5B-Instruct/`，且包含 `config.json`, `model.safetensors` 等文件。
+
 ---
 
-### 2. LoRA 微调
+### 3. LoRA 微调
 
 ```bash
 # 进入微调目录
@@ -96,12 +125,13 @@ cd finetune
 
 # 执行训练（默认使用 data/train.jsonl）
 python lora_train.py
+```
 
-- 训练数据格式（`data/train.jsonl`）：
-📁 注意：data/ 目录已被 .gitignore 忽略，请自行创建并放入你的数据。
-## 数据格式说明
+---
 
-本项目使用 JSON 格式进行模型微调，每行一个 JSON 对象（JSONL 格式），包含以下字段：
+## 📚 数据格式说明
+
+本项目使用 JSONL (JSON Lines) 格式进行模型微调。`data/train.jsonl` 文件中，**每行是一个独立的 JSON 对象**，包含以下字段：
 
 - `instruction`: str，任务指令（如“请总结以下文章”）
 - `response`: str，期望模型输出的答案
@@ -110,36 +140,34 @@ python lora_train.py
 
 ```jsonl
 {"instruction": "转博前需要具备哪些科研成果?", "response": "通常需要一篇一作论文（B类或以上），因为课题组内部和外部申请竞争激烈，成果是决定性因素。"}
-- 微调完成后，模型保存至 `finetune/output/final_model/`。
+```
+
+📁 **注意**：
+- `data/` 目录已被 `.gitignore` 忽略，请自行创建并放入你的私有数据。
+- 你可以通过修改 `lora_train.py` 中的 `dataset` 加载路径来使用自定义数据集。
 
 ---
 
-### 3. 启动推理服务（本地）
+### 4. 启动推理服务
+
+#### 本地启动 (调试)
 
 ```bash
-# 返回项目根目录
+# 返回根目录
 cd ..
 
-# 直接运行（调试模式）
+# 直接运行（单 worker）
 uvicorn api.main:app --host 0.0.0.0 --port 8000 --reload
+```
 
-# 或使用 Gunicorn（生产模式）
+#### 生产模式 (Gunicorn)
+
+```bash
+# 使用 Gunicorn 启动（多 worker）
 gunicorn -k uvicorn.workers.UvicornWorker --bind 0.0.0.0:8000 --workers 2 api.main:app
 ```
 
----
-```markdown
-## 模型输出
-
-训练生成的 LoRA 权重默认保存在 `output/` 目录下（如 `lora.safetensors`），该目录已被 `.gitignore` 忽略，**不会自动上传**。
-
-如需分享微调结果，请手动上传 `output/` 中的权重文件，并在 README 中说明加载方式：
-
-```python
-from peft import PeftModel
-model = PeftModel.from_pretrained(model, "path/to/your/lora/weights")
-
-### 4. Docker 一键部署
+#### Docker 一键部署
 
 ```bash
 # 构建镜像
@@ -163,7 +191,6 @@ docker-compose up -d
 curl http://localhost:8000/health
 ```
 
-返回示例：
 ```json
 {
   "status": "healthy",
@@ -172,8 +199,6 @@ curl http://localhost:8000/health
   "model_loaded": true
 }
 ```
-
----
 
 ### 🔹 `POST /predict` - 文本生成
 
@@ -188,7 +213,6 @@ curl -X POST http://localhost:8000/predict \
   }'
 ```
 
-返回示例：
 ```json
 {
   "output": "春风拂面花自开，柳绿桃红映山川..."
@@ -206,11 +230,13 @@ curl -X POST http://localhost:8000/predict \
 | `MODEL_PATH` | `/mnt/models/Qwen2-0.5B-Instruct` | 基础模型路径 |
 | `LORA_PATH` | `/app/finetune/output/final_model` | LoRA 微调权重路径 |
 | `API_PORT` | `8000` | 服务端口 |
-| `DEFAULT_MAX_NEW_TOKENS` | `64` | 默认生成长度 |
+| `DEFAULT_MAX_NEW_TOKENS` | `128` | 默认生成长度 |
 | `DEFAULT_TEMPERATURE` | `0.7` | 温度参数 |
 | `DEFAULT_TOP_P` | `0.9` | Top-p 采样 |
 | `WORKERS` | `2` | Gunicorn Worker 数 |
 | `DEBUG` | `false` | 是否开启调试模式 |
+
+> 📌 **创建 `.env` 文件**：复制 `env.example` 并根据需要修改。
 
 ---
 
@@ -232,9 +258,11 @@ curl -X POST http://localhost:8000/predict \
 ```bash
 # 单元测试
 pytest tests/
+
 # 集成测试
 python test_api_v1.py
 python test_api_v2.py
+
 # 压力测试（Locust）
 locust -f locustfile.py --headless -u 10 -r 2 -t 5m
 ```
@@ -246,10 +274,9 @@ locust -f locustfile.py --headless -u 10 -r 2 -t 5m
 1. 购买阿里云 GPU 云服务器（如 ecs.gn6i-c4g1.xlarge）
 2. 安装 Docker + NVIDIA Container Toolkit
 3. 克隆本项目
-4. 执行 `docker-compose up -d`
-5. 开放 8000 端口，即可通过公网访问 API
-
-> 📄 详见 [DEPLOYMENT.md](docs/DEPLOYMENT.md)（即将补充）
+4. 下载基础模型到 `models/` 目录
+5. 执行 `docker-compose up -d`
+6. 开放 8000 端口，即可通过公网访问 API
 
 ---
 
@@ -267,7 +294,7 @@ locust -f locustfile.py --headless -u 10 -r 2 -t 5m
 - 性能优化
 - 文档改进
 
-请遵守 [Contributing Guidelines](CONTRIBUTING.md)（即将补充）
+请遵守 [CONTRIBUTING.md](CONTRIBUTING.md)。
 
 ---
 
@@ -285,3 +312,4 @@ locust -f locustfile.py --headless -u 10 -r 2 -t 5m
 
 > ✨ 用小模型，做大事。
 ```
+
