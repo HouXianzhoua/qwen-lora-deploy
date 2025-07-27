@@ -212,7 +212,12 @@ curl -X POST http://localhost:8000/predict \
 | `WORKERS` | `2` | Gunicorn Worker 数 |
 | `DEBUG` | `false` | 是否开启调试模式 |
 
-> 📌 **创建 `.env` 文件**：复制 `env.example` 并根据需要修改。
+> 📌 **创建 `.env` 文件**：复制 `env.example` 并根据需要修改
+
+```bash
+cp .env.example .env
+# 编辑 .env 文件
+vim .env
 
 ---
 
