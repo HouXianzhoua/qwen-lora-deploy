@@ -5,15 +5,28 @@ __pycache__/
 
 # Virtual env
 .env
+!.env.example
 venv/
 .qwen-lora/
+
+# Logs
+logs/
 *.log
 
 # Model files
-models/Qwen2-0.5B-Instruct/
+/models/
+/finetune/output/checkpoint-*
+/finetune/output/*/optimizer.pt
+/finetune/output/*/rng_state*
+/finetune/output/*/scheduler.pt
 *.safetensors
 *.pth
 *.bin
 
 # Data
 data/
+
+# IDE
+.vscode/
+.idea/
+
