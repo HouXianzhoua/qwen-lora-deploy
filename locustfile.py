@@ -1,9 +1,7 @@
 # locustfile.py
-import json
 import random
 from locust import HttpUser, task, between
 
-# 可以准备一些测试 prompt
 PROMPTS = [
     "请写一首关于春天的诗。",
     "解释什么是机器学习。",
@@ -13,7 +11,8 @@ PROMPTS = [
 ]
 
 class QwenUser(HttpUser):
-    wait_time = between(1, 3)  # 用户思考时间：1~3秒
+    host = "http://localhost:8000"  # 直接写死本地 API 地址
+    wait_time = between(1, 3)
 
     @task
     def predict(self):
@@ -27,9 +26,11 @@ class QwenUser(HttpUser):
         with self.client.post("/predict", json=request_body, catch_response=True) as resp:
             if resp.status_code != 200:
                 resp.failure(f"返回状态码 {resp.status_code}: {resp.text}")
-            try:
-                result = resp.json()
-                if "output" not in result:
-                    resp.failure("响应缺少 'output' 字段")
-            except Exception as e:
-                resp.failure(f"解析 JSON 失败: {e}")
+            else:
+                try:
+                    result = resp.json()
+                    if "output" not in result:
+                        resp.failure("响应缺少 'output' 字段")
+                except Exception as e:
+                    resp.failure(f"解析 JSON 失败: {e}")
+
