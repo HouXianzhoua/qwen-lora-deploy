@@ -1,6 +1,8 @@
 # config.py
 import os
 from pathlib import Path
+from dotenv import load_dotenv
+load_dotenv()
 
 # === 路径配置 ===
 # 基础模型路径（挂载卷）
