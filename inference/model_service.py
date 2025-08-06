@@ -5,7 +5,7 @@ import logging
 from concurrent.futures import ThreadPoolExecutor
 from functools import partial
 from typing import Optional, Tuple
-
+from api.model_registry import registry
 import torch
 from peft import PeftModel
 from transformers import AutoModelForCausalLM, AutoTokenizer
@@ -19,6 +19,10 @@ from config import (
     DEFAULT_DO_SAMPLE,
     MAX_WORKERS_THREAD_POOL,
 )
+
+# ===== 批量参数（可用环境变量覆盖）=====
+BATCH_MAX_SIZE = int(os.getenv("BATCH_MAX_SIZE", "32"))     # 每批最多合并多少请求
+BATCH_INTERVAL_MS = int(os.getenv("BATCH_INTERVAL_MS", "40"))  # 收集窗口（毫秒）
 
 logger = logging.getLogger("model_service")
 if not logger.handlers:
@@ -173,20 +177,116 @@ def generate_text(
     text = _TOKENIZER.decode(gen_ids[0], skip_special_tokens=True).strip()
     return text
 
+# ===== 批量队列与任务 =====
+class _BatchItem:
+    __slots__ = ("prompt", "params", "future")
+    def __init__(self, prompt: str, params: dict, loop: asyncio.AbstractEventLoop):
+        self.prompt = prompt
+        self.params = params
+        self.future = loop.create_future()
 
-async def async_generate_text(instruction: Optional[str] = None, **kwargs) -> str:
+_batch_queue: asyncio.Queue[_BatchItem] = asyncio.Queue()
+_batch_worker_task: asyncio.Task | None = None
+
+
+async def _batch_worker():
     """
-    异步生成：兼容传入 prompt=... 的写法，避免 500 错。
+    周期性从队列取请求，按窗口/上限合批，一次性 generate，然后把结果分发回各自 Future。
     """
-    if instruction is None:
-        instruction = kwargs.pop("prompt", None)
-    if instruction is None:
-        raise ValueError("instruction（或 prompt）是必填参数。")
+    model = registry.get_model()
+    tokenizer = registry.get_tokenizer()
+    assert model is not None and tokenizer is not None, "Model/tokenizer not initialized."
+
+    # pad/eos 兜底
+    if tokenizer.pad_token_id is None:
+        tokenizer.pad_token = tokenizer.eos_token
+
+    interval = BATCH_INTERVAL_MS / 1000.0
+
+    while True:
+        try:
+            # 1) 先拿一个（阻塞直到有）
+            first: _BatchItem = await _batch_queue.get()
+            batch = [first]
+
+            # 2) 在 interval 窗口内尽量多收集一些（不超过上限）
+            t0 = asyncio.get_event_loop().time()
+            while len(batch) < BATCH_MAX_SIZE:
+                timeout = max(0.0, t0 + interval - asyncio.get_event_loop().time())
+                try:
+                    nxt = await asyncio.wait_for(_batch_queue.get(), timeout=timeout)
+                    batch.append(nxt)
+                except asyncio.TimeoutError:
+                    break  # 窗口截止
+
+            # 3) 组 batch 输入
+            prompts = [it.prompt for it in batch]
+            # 取第一条的采样参数作为全批参数（也可做更细粒度分桶）
+            ref = batch[0].params
+            max_new_tokens = ref.get("max_new_tokens", 128)
+            temperature    = ref.get("temperature", 0.7)
+            top_p          = ref.get("top_p", 0.9)
+            do_sample      = ref.get("do_sample", True)
+
+            inputs = tokenizer(prompts, return_tensors="pt", padding=True, truncation=False)
+            inputs = {k: v.to(model.device) for k, v in inputs.items()}
+
+            with torch.no_grad():
+                outputs = model.generate(
+                    **inputs,
+                    max_new_tokens=max_new_tokens,
+                    temperature=temperature,
+                    top_p=top_p,
+                    do_sample=do_sample,
+                    pad_token_id=tokenizer.pad_token_id,
+                    eos_token_id=tokenizer.eos_token_id,
+                )
+
+            # 对齐每条样本的起始位置，逐条 decode
+            input_lens = inputs["input_ids"].shape[1]
+            texts = []
+            for i in range(outputs.size(0)):
+                gen_ids = outputs[i, input_lens:]  # 简化：同一 padding 长度
+                texts.append(tokenizer.decode(gen_ids, skip_special_tokens=True).strip())
+
+            # 4) 回填结果
+            for it, txt in zip(batch, texts):
+                if not it.future.done():
+                    it.future.set_result(txt)
+
+        except Exception as e:
+            # 将本批次所有 future 置错，避免 await 永久悬挂
+            for it in batch if "batch" in locals() else []:
+                if not it.future.done():
+                    it.future.set_exception(e)
+
+
+async def async_generate_text(
+    instruction: str,
+    max_new_tokens: int = 128,
+    temperature: float = 0.7,
+    top_p: float = 0.9,
+    do_sample: bool = True,
+):
+    """
+    批量推理入口：将请求入队，等待后台 batch worker 合并后统一生成。
+    """
+    # 防呆：若尚未初始化，直接报错（也可以在这里懒初始化）
+    assert registry.is_loaded, "Model not initialized. Call init_and_register_for_api() first."
 
     loop = asyncio.get_event_loop()
-    func = partial(generate_text, instruction, **kwargs)
-    return await loop.run_in_executor(_executor, func)
-
+    item = _BatchItem(
+        prompt=instruction,
+        params={
+            "max_new_tokens": max_new_tokens,
+            "temperature": temperature,
+            "top_p": top_p,
+            "do_sample": do_sample,
+        },
+        loop=loop,
+    )
+    await _batch_queue.put(item)
+    return await item.future
 
 def init_and_register_for_api(
     base_model_path: Optional[str] = None,
@@ -198,4 +298,9 @@ def init_and_register_for_api(
     from api.model_registry import registry  # 延迟导入避免循环依赖
     model, tokenizer = load_model(base_model_path, lora_path)
     registry.set_model(model, tokenizer)
-
+    
+    # 启动 batch worker（只启动一次）
+    global _batch_worker_task
+    if _batch_worker_task is None:
+        loop = asyncio.get_event_loop()
+        _batch_worker_task = loop.create_task(_batch_worker())

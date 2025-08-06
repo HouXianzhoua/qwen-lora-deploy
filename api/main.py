@@ -86,7 +86,7 @@ async def predict(request: InferenceRequest):
         logger.debug(f"收到推理请求: prompt='{request.prompt}', max_new_tokens={request.max_new_tokens}, temperature={request.temperature}, top_p={request.top_p}")
 
         output = await async_generate_text(
-            request.prompt,
+            request.prompt,            
             max_new_tokens=request.max_new_tokens,
             temperature=request.temperature,
             top_p=request.top_p,
