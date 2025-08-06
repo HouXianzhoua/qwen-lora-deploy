@@ -5,7 +5,7 @@
 /finetune/output/*/optimizer.pt
 /finetune/output/*/rng_state*
 /finetune/output/*/scheduler.pt
-
+/finetune/output/final_model/
 # 日志和缓存
 __pycache__/
 *.pyc
@@ -25,5 +25,5 @@ run_docker.sh
 test.sh
 
 # 其他非必要
-README.md
 data/
+.env
