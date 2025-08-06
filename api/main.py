@@ -6,8 +6,8 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from config import DEBUG, WORKERS, API_PORT, DEFAULT_MAX_NEW_TOKENS, DEFAULT_TEMPERATURE, DEFAULT_TOP_P
-from api.infer import async_generate_response
 from api.model_registry import registry
+from inference.model_service import async_generate_text, init_and_register_for_api
 
 # ✅ 替换 print，使用 logger
 from api.logger import logger  # <-- 新增
@@ -20,7 +20,6 @@ app = FastAPI(title="Qwen-LoRA API", debug=DEBUG)
 
 @app.on_event("startup")
 async def startup_event():
-    from api.infer import init_model
 
     # ✅ 第一层检查：registry 是否已加载
     if registry.is_loaded:
@@ -36,7 +35,7 @@ async def startup_event():
 
         # ✅ 此时只有 1 个 worker 能进入
         logger.info("🚀 应用启动中，开始加载模型...")
-        init_model()
+        init_and_register_for_api()
         logger.info("✅ 模型加载完成")
 
 
@@ -86,7 +85,7 @@ async def predict(request: InferenceRequest):
     try:
         logger.debug(f"收到推理请求: prompt='{request.prompt}', max_new_tokens={request.max_new_tokens}, temperature={request.temperature}, top_p={request.top_p}")
 
-        output = await async_generate_response(
+        output = await async_generate_text(
             prompt=request.prompt,
             max_new_tokens=request.max_new_tokens,
             temperature=request.temperature,

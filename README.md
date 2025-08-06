@@ -121,6 +121,29 @@ cd finetune
 python lora_train.py
 ```
 
+---
+
+## ⚙️ 配置说明
+
+通过 `.env` 文件或环境变量配置：
+
+| 环境变量 | 默认值 | 说明 |
+|---------|--------|------|
+| `MODEL_PATH` | `/mnt/models/Qwen2-0.5B-Instruct` | 基础模型路径 |
+| `LORA_PATH` | `/app/finetune/output/final_model` | LoRA 微调权重路径 |
+| `API_PORT` | `8000` | 服务端口 |
+| `DEFAULT_MAX_NEW_TOKENS` | `128` | 默认生成长度 |
+| `DEFAULT_TEMPERATURE` | `0.7` | 温度参数 |
+| `DEFAULT_TOP_P` | `0.9` | Top-p 采样 |
+| `WORKERS` | `2` | Gunicorn Worker 数 |
+| `DEBUG` | `false` | 是否开启调试模式 |
+
+> 📌 **创建 `.env` 文件**：复制 `env.example` 并根据需要修改
+```bash
+cp .env.example .env
+# 编辑 .env 文件
+vim .env
+```
 
 ---
 
@@ -195,29 +218,6 @@ curl -X POST http://localhost:8000/predict \
 }
 ```
 
----
-
-## ⚙️ 配置说明
-
-通过 `.env` 文件或环境变量配置：
-
-| 环境变量 | 默认值 | 说明 |
-|---------|--------|------|
-| `MODEL_PATH` | `/mnt/models/Qwen2-0.5B-Instruct` | 基础模型路径 |
-| `LORA_PATH` | `/app/finetune/output/final_model` | LoRA 微调权重路径 |
-| `API_PORT` | `8000` | 服务端口 |
-| `DEFAULT_MAX_NEW_TOKENS` | `128` | 默认生成长度 |
-| `DEFAULT_TEMPERATURE` | `0.7` | 温度参数 |
-| `DEFAULT_TOP_P` | `0.9` | Top-p 采样 |
-| `WORKERS` | `2` | Gunicorn Worker 数 |
-| `DEBUG` | `false` | 是否开启调试模式 |
-
-> 📌 **创建 `.env` 文件**：复制 `env.example` 并根据需要修改
-```bash
-cp .env.example .env
-# 编辑 .env 文件
-vim .env
-```
 
 ---
 
