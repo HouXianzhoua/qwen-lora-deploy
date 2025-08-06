@@ -83,6 +83,46 @@ cp .env.example .env
 ```
 
 ---
+## 🎯 LoRA 微调步骤
+
+本项目使用 LoRA（Low-Rank Adaptation）对 **Qwen2-0.5B-Instruct** 进行轻量化指令微调，支持在极少数据和极短时间内完成模型定制。
+
+### 1️⃣ 数据准备
+
+- 数据格式为 **JSONL**（每行一个 JSON 对象），字段说明：
+  - `instruction`: str，任务指令（如“请总结以下文章”）
+  - `response`: str，期望的输出内容
+- 训练数据放在 `data/train.jsonl`（该目录已被 `.gitignore` 忽略，可自由替换为自己的数据集）。
+
+**示例（脱敏）**：
+```jsonl
+{"instruction": "转博前需要具备哪些科研成果?", "response": "通常需要一篇一作论文（B类或以上），因为课题组内部和外部申请竞争激烈，成果是决定性因素。"}
+````
+
+### 2️⃣ 启动微调
+
+进入微调目录：
+
+```bash
+cd finetune
+```
+
+执行训练（默认使用 `data/train.jsonl`）：
+
+```bash
+python lora_train.py
+```
+
+> 💡 **训练耗时参考**：138 条数据，NVIDIA 4070S，约 **72 秒** 完成。
+
+### 3️⃣ 微调结果
+
+* 最终 LoRA 权重保存在：
+
+```
+finetune/output/final_model/
+```
+---
 
 ## 🚀 启动推理服务
 
