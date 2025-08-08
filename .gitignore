@@ -19,7 +19,6 @@ inference/results.json
 .idea/
 
 # 测试脚本
-tests/
 gpu_test.sh
 run_docker.sh
 test.sh

@@ -1,43 +1,29 @@
 # api/main.py
 import torch
-import os
-import threading  # ←←← 新增：用于加锁
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
-from config import DEBUG, WORKERS, API_PORT, DEFAULT_MAX_NEW_TOKENS, DEFAULT_TEMPERATURE, DEFAULT_TOP_P
+from pydantic import BaseModel, Field
+from config import (
+    DEBUG,
+    DEFAULT_MAX_NEW_TOKENS,
+    DEFAULT_TEMPERATURE,
+    DEFAULT_TOP_P,
+)
 from api.model_registry import registry
 from inference.model_service import async_generate_text, init_and_register_for_api
-
-# ✅ 替换 print，使用 logger
-from api.logger import logger  # <-- 新增
-
-# 🔒 新增：模块级锁，确保 init_model 只执行一次
-_init_lock = threading.Lock()
+from api.logger import logger
 
 app = FastAPI(title="Qwen-LoRA API", debug=DEBUG)
 
-
 @app.on_event("startup")
 async def startup_event():
-
-    # ✅ 第一层检查：registry 是否已加载
-    if registry.is_loaded:
-        logger.info("✅ 模型已由 registry 加载，跳过初始化。")
-        return
-
-    # 🔒 加锁，防止多个 worker 同时初始化
-    with _init_lock:
-        # ✅ 第二层检查：拿到锁后再次确认是否已加载（防止竞争）
-        if registry.is_loaded:
-            logger.info("✅ 模型已在其他 worker 中加载，当前 worker 跳过。")
-            return
-
-        # ✅ 此时只有 1 个 worker 能进入
-        logger.info("🚀 应用启动中，开始加载模型...")
+    # 交给 model_service 做幂等，避免多次初始化
+    try:
         init_and_register_for_api()
-        logger.info("✅ 模型加载完成")
-
+        logger.info("✅ 模型加载完成（幂等保护）。")
+    except Exception as e:
+        logger.error(f"🚨 启动加载模型失败: {e}", exc_info=True)
+        raise
 
 app.add_middleware(
     CORSMiddleware,
@@ -52,41 +38,43 @@ async def health_check():
         gpu_available = torch.cuda.is_available()
         model = registry.get_model()
         tokenizer = registry.get_tokenizer()
+        model_loaded = model is not None and tokenizer is not None
 
-        if model is not None and tokenizer is not None:
-            device_info = str(model.device)
-            model_loaded = True
-        else:
-            device_info = "model or tokenizer is None"
-            model_loaded = False
+        # 更稳的设备信息获取
+        device_attr = getattr(model, "device", None) if model is not None else None
+        device_info = getattr(device_attr, "type", str(device_attr)) if device_attr is not None else "uninitialized"
 
         return {
-            "status": "healthy",
+            "status": "healthy" if model_loaded else "initializing",
             "gpu": gpu_available,
             "device": device_info,
             "model_loaded": model_loaded,
-            "is_loaded_via_registry": registry.is_loaded
+            "is_loaded_via_registry": registry.is_loaded,
         }
     except Exception as e:
-        logger.error(f"Health check failed: {str(e)}")
+        logger.error(f"Health check failed: {str(e)}", exc_info=True)
         return {"status": "error", "message": f"Health check failed: {str(e)}"}
 
-
 class InferenceRequest(BaseModel):
-    prompt: str
-    max_new_tokens: int = DEFAULT_MAX_NEW_TOKENS
-    temperature: float = DEFAULT_TEMPERATURE
-    top_p: float = DEFAULT_TOP_P
+    prompt: str = Field(..., min_length=1, description="输入提示，不能为空")
+    max_new_tokens: int = Field(DEFAULT_MAX_NEW_TOKENS, ge=1, le=2048)
+    temperature: float = Field(DEFAULT_TEMPERATURE, ge=0.0, le=2.0)
+    top_p: float = Field(DEFAULT_TOP_P, gt=0.0, le=1.0)
     do_sample: bool = True
-
 
 @app.post("/predict")
 async def predict(request: InferenceRequest):
     try:
-        logger.debug(f"收到推理请求: prompt='{request.prompt}', max_new_tokens={request.max_new_tokens}, temperature={request.temperature}, top_p={request.top_p}")
+        logger.debug(
+            f"收到推理请求: max_new_tokens={request.max_new_tokens}, "
+            f"temperature={request.temperature}, top_p={request.top_p}, do_sample={request.do_sample}"
+        )
+
+        if not registry.is_loaded:
+            raise HTTPException(status_code=503, detail="模型尚未初始化，请稍后重试。")
 
         output = await async_generate_text(
-            request.prompt,            
+            request.prompt.strip(),
             max_new_tokens=request.max_new_tokens,
             temperature=request.temperature,
             top_p=request.top_p,
@@ -95,6 +83,9 @@ async def predict(request: InferenceRequest):
 
         logger.info(f"推理成功，输出长度: {len(output)}")
         return {"output": output}
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"生成失败: {str(e)}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"生成失败: {str(e)}")
+
